@@ -9,7 +9,10 @@ const taxiServiceFetcher = (taxiService, countryName = 'nigeria') => {
   if (taxiService === 'uber') {
     receiptProvider = [`uber.${countryName.toLowerCase()}@uber.com`, '']
   } else if (taxiService === 'taxify') {
-    receiptProvider = ['receipts-nigeria@taxify.eu', 'receipts-nigeria@bolt.eu']
+    receiptProvider = [
+      `receipts-${countryName.toLowerCase()}@taxify.eu`,
+      `receipts-${countryName.toLowerCase()}@bolt.eu`
+    ]
   } else return new Error('No taxi service provided')
 
   return receiptProvider
@@ -92,13 +95,13 @@ class mailController {
       }
     }
 
-   
-
     try {
       const listedMessages = (await axios.get(`${FETCH_MAIL_URL}`, {
         ...options,
         params: {
-          q: `from: ${receiptProvider[0]} after: ${date}`
+          q: `from: (${receiptProvider[0]} OR ${
+            receiptProvider[1]
+          } ) after: ${date}`
         }
       })).data.messages
 
