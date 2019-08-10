@@ -22,5 +22,6 @@ module.exports = {
   BASEURL,
   GOOGLE_CONFIG,
   JWT_SECRET: process.env.JWT_SECRET,
-  FETCH_MAIL_URL: process.env.FETCH_MAIL_URL
+  FETCH_MAIL_URL: process.env.FETCH_MAIL_URL, 
+  GEO_USERNAME: process.env.GEO_USERNAME,
 }

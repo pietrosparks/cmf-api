@@ -1,15 +1,15 @@
 const axios = require('axios')
 const moment = require('moment')
 const { response, responseError } = require('../utils')
-const { FETCH_MAIL_URL } = require('../dbconfig/secrets')
+const { FETCH_MAIL_URL, GEO_USERNAME } = require('../dbconfig/secrets')
 
-const taxiServiceFetcher = taxiService => {
+const taxiServiceFetcher = (taxiService, countryName = 'nigeria') => {
   let receiptProvider
 
   if (taxiService === 'uber') {
-    receiptProvider = 'uber.nigeria@uber.com'
+    receiptProvider = [`uber.${countryName.toLowerCase()}@uber.com`, '']
   } else if (taxiService === 'taxify') {
-    receiptProvider = 'receipts-nigeria@taxify.eu'
+    receiptProvider = ['receipts-nigeria@taxify.eu', 'receipts-nigeria@bolt.eu']
   } else return new Error('No taxi service provided')
 
   return receiptProvider
@@ -17,21 +17,20 @@ const taxiServiceFetcher = taxiService => {
 
 const datePeriodFetcher = date => {
   let specifiedDate
-  if (date === 'past-week') {
+  if (date === 'this-week') {
     specifiedDate = moment()
       .startOf('week')
       .format('YYYY/MM/DD')
-  } else if (date === 'past-month') {
+  } else if (date === 'this-month') {
     specifiedDate = moment()
       .startOf('month')
       .format('YYYY/MM/DD')
-  } else if (date === 'past-year') {
+  } else if (date === 'this-year') {
     specifiedDate = moment()
       .startOf('year')
       .format('YYYY/MM/DD')
   } else return new Error('No date specified')
 
-  console.log(specifiedDate, 'specified')
   return specifiedDate
 }
 
@@ -67,11 +66,7 @@ const parseFunction = (messages, positive, negative, taxiService) => {
 
 class mailController {
   async list(req, res) {
-    const { taxiService, datePeriod } = req.query
-
-    let receiptProvider = taxiServiceFetcher(taxiService)
-    let date = datePeriodFetcher(datePeriod)
-
+    const { taxiService, datePeriod, latitude, longitude } = req.query
     const positive = 0
     const negative = 0
     const options = {
@@ -80,35 +75,35 @@ class mailController {
       }
     }
 
+    let storeCountryName
+    let receiptProvider
+    let date
+
+    if (latitude && longitude) {
+      try {
+        const url = `http://api.geonames.org/countryCodeJSON?lat=${latitude}&lng=${longitude}&username=${GEO_USERNAME}`
+        const { countryName } = (await axios.get(url)).data
+        storeCountryName = countryName
+      } catch (err) {
+        console.log('an error occured >>>', err)
+      } finally {
+        receiptProvider = taxiServiceFetcher(taxiService, storeCountryName)
+        date = datePeriodFetcher(datePeriod)
+      }
+    }
+
+   
+
     try {
       const listedMessages = (await axios.get(`${FETCH_MAIL_URL}`, {
         ...options,
         params: {
-          q: `from: ${receiptProvider} after: ${date}`
+          q: `from: ${receiptProvider[0]} after: ${date}`
         }
       })).data.messages
 
-      if (listedMessages) {
-        const openedMessages = await axios.all(
-          listedMessages.map(m => {
-            m.links = axios
-              .get(`${FETCH_MAIL_URL}/${m.id}`, {
-                ...options,
-                params: {
-                  format: 'full'
-                }
-              })
-              .then(resp => resp.data.snippet)
-            return m.links
-          })
-        )
-
-        const bill = parseFunction(
-          openedMessages,
-          positive,
-          negative,
-          taxiService
-        )
+      if (!listedMessages) {
+        const bill = { positive, negative: 0 }
 
         return response(
           200,
@@ -117,15 +112,36 @@ class mailController {
           'Taxi Fare Successfully Crunched',
           bill
         )
-      } else {
-        return response(
-          200,
-          'Success',
-          res,
-          'Taxi Fare Successfully Crunched',
-          { positive: 0, negative: 0 }
-        )
       }
+
+      const openedMessages = await axios.all(
+        listedMessages.map(m => {
+          m.links = axios
+            .get(`${FETCH_MAIL_URL}/${m.id}`, {
+              ...options,
+              params: {
+                format: 'full'
+              }
+            })
+            .then(resp => resp.data.snippet)
+          return m.links
+        })
+      )
+
+      const bill = parseFunction(
+        openedMessages,
+        positive,
+        negative,
+        taxiService
+      )
+
+      return response(
+        200,
+        'Success',
+        res,
+        'Taxi Fare Successfully Crunched',
+        bill
+      )
     } catch (err) {
       console.log(err, 'error')
       return responseError(err, res, 'Error while crunching your fares')

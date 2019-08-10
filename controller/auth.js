@@ -2,11 +2,14 @@ const { encryptPayload } = require('../utils')
 
 class AuthController {
   google(req, res) {
-    const io = req.app.get('io')
+    const io = req.app.get('io');
+
+    const { displayName: name, photos, id } = req.user.profile;
+
     const user = {
-      name: req.user.profile.displayName,
-      photo: req.user.profile.photos[0].value.replace(/sz=50/gi, 'sz=250'),
-      id: req.user.profile.id,
+      id,
+      name,
+      photo: photos[0].value.replace(/sz=50/gi, 'sz=250'),
       token: encryptPayload(req.user.accessToken)
     }
 
