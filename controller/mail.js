@@ -37,6 +37,7 @@ const datePeriodFetcher = date => {
   return specifiedDate
 }
 
+// To-do change the currency match to accomodate other currencies
 const parseFunction = (messages, positive, negative, taxiService) => {
   if (taxiService === 'uber') {
     messages.forEach(m => {
@@ -89,11 +90,11 @@ class mailController {
         storeCountryName = countryName
       } catch (err) {
         console.log('an error occured >>>', err)
-      } finally {
-        receiptProvider = taxiServiceFetcher(taxiService, storeCountryName)
-        date = datePeriodFetcher(datePeriod)
       }
     }
+
+    receiptProvider = taxiServiceFetcher(taxiService, storeCountryName)
+    date = datePeriodFetcher(datePeriod)
 
     try {
       const listedMessages = (await axios.get(`${FETCH_MAIL_URL}`, {
