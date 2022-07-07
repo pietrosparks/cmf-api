@@ -21,7 +21,7 @@
     "jade": "~1.11.0",
     "jsonwebtoken": "^8.4.0",
     "lodash": "^4.17.13",
-    "moment": "^2.24.0",
+    "moment": "^2.29.4",
     "mongoose": "^5.4.5",
     "morgan": "~1.9.0",
     "node-gmail-api": "^0.6.1",
